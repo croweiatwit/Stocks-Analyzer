@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Accuracy Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f4f4f4;
+    }
+    .chart-container {
+      margin-bottom: 4rem;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    canvas {
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 Google Stock Price Accuracy vs Yahoo</h1>
+  <div id="charts"></div>
+
+  <script>
+    function loadCSVAndRenderCharts() {
+      fetch('stock_accuracy_log.csv')
+        .then(response => response.text())
+        .then(csvText => {
+          const parsed = Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true
+          });
+
+          const stockData = parsed.data.map(d => ({
+            timestamp: d["Timestamp"],
+            symbol: d["Symbol"],
+            google: parseFloat(d["Google Price"]),
+            yahoo: parseFloat(d["Yahoo Price"]),
+            accuracy: parseFloat(d["Accuracy %"])
+          }));
+
+          renderCharts(stockData);
+        });
+    }
+
+    function renderCharts(stockData) {
+      const symbols = [...new Set(stockData.map(item => item.symbol))];
+      const container = document.getElementById("charts");
+      container.innerHTML = ""; // Clear existing charts
+
+      symbols.forEach(symbol => {
+        const filtered = stockData.filter(d => d.symbol === symbol);
+
+        const canvas = document.createElement("canvas");
+        const wrapper = document.createElement("div");
+        wrapper.className = "chart-container";
+        wrapper.appendChild(canvas);
+        container.appendChild(wrapper);
+
+        new Chart(canvas, {
+          type: "line",
+          data: {
+            labels: filtered.map(d => d.timestamp),
+            datasets: [
+              {
+                label: `${symbol} Google Price`,
+                data: filtered.map(d => d.google),
+                borderColor: "#3e95cd",
+                backgroundColor: "rgba(62, 149, 205, 0.2)",
+                fill: false,
+                tension: 0.2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: `${symbol} Price Chart with Accuracy Overlay`
+              },
+              tooltip: {
+                callbacks: {
+                  afterLabel: (context) => {
+                    const index = context.dataIndex;
+                    const item = filtered[index];
+                    return `Accuracy: ${item.accuracy.toFixed(2)}%\nTime: ${item.timestamp.split(' ')[1]}`;
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                title: {
+                  display: true,
+                  text: "Google Price"
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: "Timestamp"
+                }
+              }
+            }
+          }
+        });
+      });
+    }
+
+    // Initial load
+    loadCSVAndRenderCharts();
+
+    // Optional: auto-refresh every 10 seconds
+    setInterval(loadCSVAndRenderCharts, 10000);
+  </script>
+</body>
+</html>
